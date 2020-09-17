@@ -154,7 +154,7 @@ class MultiClientServer(Thread):
             client.retry += 1
             return
         client.retry = 0
-        client.got += BUFFER_SIZE
+        client.got += len(data)
         client.file.write(data)
 
 
