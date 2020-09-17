@@ -26,6 +26,7 @@ def signal_handler(sig, frame):
     exit(0)
 
 
+# Signals handlers for graceful exiting
 signal.signal(signal.SIGHUP, signal_handler)
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGQUIT, signal_handler)
@@ -42,23 +43,30 @@ class Progress:
             raise ValueError("total should be more than 0")
 
         self.last_time = [time.time()] * self.update_eta_rate
-        self.total = total
-        self.progress = 0
-        self.progress_name = progress_name
+        self.total = total # maximum progress
+        self.progress = 0 # current progress
+        self.progress_name = progress_name # the name of the progress task
         self.eta_counter = -1
+
+        # Start message
         print(
             self.message.format(name=self.progress_name, bar='█' * 0 + ' ' * self.bar_size, progress=0),
             end='')
 
     def update(self, new_progress):
+        """
+        Update the progress bar
+        :param new_progress: amount of new done progress since the previous update
+        """
         self.eta_counter = (self.eta_counter + 1) % self.update_eta_rate
         now = time.time()
-        delta = now - self.last_time[self.eta_counter]
         self.last_time[self.eta_counter] = now
         self.progress += new_progress
 
+        # Calculate the number of bars and spaces for the progress bar
         bars = int(self.progress / self.total * self.bar_size)
         spaces = self.bar_size - bars
+
         print(self.message.format(name=self.progress_name,
                                   bar='█' * bars + " " * spaces,
                                   progress=min(100, (self.progress / self.total) * 100)), end='')
@@ -92,8 +100,8 @@ file_size = os.path.getsize(file_name)
 host = args.host
 port = args.port
 
-# get the base name
-# it will send file name without folders (directories)
+# Get the base name
+# It will send file name without folders (directories)
 file_basename = ntpath.basename(args.file_name)
 
 # Create socket
@@ -105,14 +113,16 @@ print(f"\r{GREEN}Connected to {host}:{port}!{RESET}")
 # Start transmitting file
 print(f"{YELLOW}Sending file info...{RESET}", end='')
 sock.sendall(f'{{"file_name": "{file_basename}", "size": {file_size}}}'.encode())
+
+# Get the confirmation message
 file_info = json.loads(sock.recv(BUFF_SIZE).decode())
 print(f"\r{GREEN}File name on server: {file_info['server_file_name']}.{RESET}\n"
       f"{YELLOW}Starting transmitting the file...")
 
-# create progress bar
+# Create progress bar
 progress = Progress(file_size, "Sending file")
 
-# send file
+# Send file
 with open(file_name, 'rb') as f:
     payload = f.read(BUFF_SIZE)
     while payload:
@@ -120,5 +130,7 @@ with open(file_name, 'rb') as f:
         progress.update(BUFF_SIZE)
         payload = f.read(BUFF_SIZE)
 print(f"\033[F\033[F{GREEN}Finished{RESET}\033[K")
+
+# Close the connection and exit
 sock.close()
 print(f"{GREEN}Connection closed{RESET}")
